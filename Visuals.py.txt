@@ -1,0 +1,1 @@
+wpa_passphrase "Super Computer" Password | sudo wpa_supplicant -B -iwlan0 -c /dev/stdin

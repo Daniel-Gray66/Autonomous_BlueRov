@@ -1,0 +1,13 @@
+wpa_passphrase "Super Computer" Password | sudo wpa_supplicant -B -iwlan0 -c /dev/stdin
+
+
+
+
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+country=US
+
+network={
+        ssid="SuperComputer"
+        psk=b0e033643d5fd26fb000371af6db505d3dee2d314189404dd068782725958599
+}
