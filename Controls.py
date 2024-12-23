@@ -67,7 +67,7 @@ master.mav.rc_channels_override_send(
 
 time.sleep(1)
 
-
+#This is a test push
 
 master.arducopter_disarm()
 
