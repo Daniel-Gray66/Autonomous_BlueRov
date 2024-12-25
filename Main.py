@@ -1,5 +1,7 @@
 import Controls
 import bluerovid
+from ultralytics import YOLO
+from pymavlink import mavutil
 
 
 if __name__ == '__main__':
@@ -11,6 +13,8 @@ if __name__ == '__main__':
     # Add port= if is necessary to use a different one
     model = YOLO('yolov8n.pt')
     print("Created the model")
+
+    master = create_connectionlink()
     
 
     print('Initialising stream...')
