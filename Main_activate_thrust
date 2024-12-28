@@ -1,0 +1,123 @@
+import cv2
+import sys
+import time
+from ultralytics import YOLO
+
+# Import your control functions
+# Assuming you saved them in a file called Controls.py or similar:
+from test_v2_controls import (
+    create_connectionlink,
+    arm_vehicle,
+    disarm_vehicle,
+    control_motors
+)
+
+# If you have a 'Video' class for your camera:
+# from some_camera_module import Video  # or wherever it's located
+
+def main():
+    # ----------------------------------------------------
+    # 1. Initialize Camera and YOLO model
+    # ----------------------------------------------------
+    video = Video(port=4777)  # Adapt to your camera stream
+    model = YOLO('yolov8n.pt')
+    print("Model loaded.")
+
+    # Wait until the camera/stream is ready
+    print('Initializing stream...')
+    waited = 0
+    while not video.frame_available():
+        waited += 1
+        print(f'\r  Frame not available (x{waited})', end='')
+        cv2.waitKey(30)
+    print('\nSuccess! Camera stream is ready.')
+
+    # ----------------------------------------------------
+    # 2. Connect to ROV via MAVLink
+    # ----------------------------------------------------
+    master = create_connectionlink()
+    if not master:
+        sys.exit("Failed to establish MAVLink connection. Exiting.")
+
+    # ----------------------------------------------------
+    # 3. Arm the ROV
+    # ----------------------------------------------------
+    if not arm_vehicle(master):
+        sys.exit("Vehicle refused to arm. Exiting.")
+
+    print("Starting YOLO detection. Press 'q' to quit...")
+
+    # ----------------------------------------------------
+    # 4. Main Loop: YOLO Inference + Motor Control
+    # ----------------------------------------------------
+    try:
+        while True:
+            # Check if new frame is available
+            if video.frame_available():
+                frame = video.frame()
+
+                # Run YOLO on the frame
+                results = model(frame)
+                annotated_frame = results[0].plot()
+
+                # ----------------------------
+                # DETECTION LOGIC
+                # ----------------------------
+                # Let's do a simple check: if we detect any object,
+                # we set pitch to 1600 (forward thrust).
+                # Otherwise, keep motors neutral (1500).
+                if len(results[0].boxes) > 0:
+                    # At least one object detected
+                    print("Object detected! Moving forward...")
+                    control_motors(
+                        master,
+                        roll=1500,
+                        pitch=1600,   # Slightly forward
+                        throttle=1500,
+                        yaw=1500
+                    )
+                else:
+                    # No objects detected, stay neutral
+                    control_motors(
+                        master,
+                        roll=1500,
+                        pitch=1500,
+                        throttle=1500,
+                        yaw=1500
+                    )
+
+                # Display video feed with YOLO annotations
+                cv2.imshow('ROV Camera', annotated_frame)
+
+            # Check for quit key
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+            # Sleep a bit so we don't overload the CPU
+            time.sleep(0.01)
+
+    except KeyboardInterrupt:
+        print("Received keyboard interrupt. Exiting loop.")
+
+    finally:
+        # ------------------------------------------------
+        # 5. Stop Motors and Disarm
+        # ------------------------------------------------
+        print("Stopping motors...")
+        control_motors(
+            master,
+            roll=1500,
+            pitch=1500,
+            throttle=1500,
+            yaw=1500
+        )
+
+        print("Disarming vehicle...")
+        disarm_vehicle(master)
+
+        print("Closing camera and exiting...")
+        cv2.destroyAllWindows()
+
+
+if __name__ == '__main__':
+    main()
