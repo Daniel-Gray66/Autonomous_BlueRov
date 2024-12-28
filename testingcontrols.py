@@ -12,8 +12,8 @@ def control_motors(connection, motor1=1500, motor2=1500, motor3=1500, motor4=150
       (1500 is neutral, >1500 for forward, <1500 for reverse/negative thrust)
     """
     try:
-        print("Sending motor commands")
-        connection.mav.rc_channels_override_send(
+         print("Sending motor commands")
+         connection.mav.rc_channels_override_send(
             connection.target_system,
             connection.target_component,
             motor1,  # Motor 1 (Roll)
@@ -23,7 +23,7 @@ def control_motors(connection, motor1=1500, motor2=1500, motor3=1500, motor4=150
             motor5,  # Motor 5
             motor6,  # Motor 6
             0, 0     # Unused channels
-        )
+            )
 
     except Exception as e:
         print(f"An error occurred: {e}")
@@ -43,10 +43,13 @@ def stop_and_disarm(connection):
             connection.target_component,
             0, 0, 0, 0, 0, 0, 0, 0
         )
+
+        time.sleep(5)
         
         print("Disarming the BlueROV")
         connection.arducopter_disarm()
         print("Disarmed")
+        time.sleep(2)
 
     except Exception as e:
         print(f"An error occurred: {e}")
@@ -92,17 +95,14 @@ def create_connectionlink():
 
 # Example usage:
 master = create_connectionlink()
-
-master.motors_armed()
-#arm the robot
-print("Vehicle armed:", master.motors_armed())
-
+master.arducopter_arm()
 
 time.sleep(5)
+#arm the robot
 
 #Here is where we send out commands
-
-control_motors(master, motor1=1600, motor2=1500, motor3=1500, motor4=1500, motor5=1500, motor6=1500)
+print("starting the mortors")
+control_motors(master, motor1=1600, motor2=1600, motor3=1600, motor4=1600, motor5=1600, motor6=1600)
 
 time.sleep(5)
 
