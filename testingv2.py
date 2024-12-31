@@ -25,7 +25,7 @@ def create_connectionlink(connection_str='udp:192.168.2.1:14550', timeout=10):
         if master.wait_heartbeat(timeout=timeout):
             print("Heartbeat received. Connection established.")
 
-            # Request data streams (optional, but helpful for telemetry)
+            # Request data streams 
             master.mav.request_data_stream_send(
                 master.target_system,
                 master.target_component,
@@ -102,7 +102,7 @@ def control_motors(master, roll=1500, pitch=1500, throttle=1500, yaw=1500, ch5=1
         yaw,      # Channel 4: Yaw
         ch5,      # Channel 5
         ch6,      # Channel 6
-        ch7,        # Channel 7 (unused)
+        ch7,        # Channel 7 (unused) might be lights
         0         # Channel 8 (unused)
     )
     
