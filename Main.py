@@ -1,8 +1,17 @@
-import cv2
-import sys
-import time
-from ultralytics import YOLO
 
+#!/usr/bin/env python
+"""
+BlueRov video capture class
+"""
+
+import cv2
+import numpy as np
+import gi
+from ultralytics import YOLO
+import os 
+import sys
+
+from Video_class.py import Video
 
 from testingv2 import (
     create_connectionlink,
@@ -10,112 +19,86 @@ from testingv2 import (
     disarm_vehicle,
     control_motors
 )
-from bluerov_video_stream import Video
+
+if __name__ == '__main__':
     
+    #These are all set up to ensure that the robot is ready for operation
 
-# Suppose you have a Video class for capturing frames
-# from some_camera_module import Video
+    # 1. Load YOLO model (will need to be the custome data-set eventually)
+    model = YOLO('yolov8n.pt')
+    print("Created the YOLO model")
 
-def main():
-    # 1. Initialize camera and YOLO model
-    video = Video(port=4777)
-    model = YOLO('yolov8n.pt')  # or your custom model that can detect 'bottle'
-    print("Model loaded.")
+    # 2. Set up video
+    video = Video()
+    print("Video object created.")
 
-    # Wait for the camera stream
-    print('Initializing stream...')
+    # 3. Connect to ROV
+    master = create_connectionlink()
+    print("Connection created.")
+    if not master:
+        sys.exit("Failed to establish MAVLink connection. Exiting.")
+
+    # 4. Arm vehicle
+    if not arm_vehicle(master):
+        sys.exit("Vehicle refused to arm. Exiting.")
+    print("Vehicle armed.")
+
+
+    # 5. Wait for frames might turn this in to a different function idk 
+    print('Initialising stream...')
     waited = 0
     while not video.frame_available():
         waited += 1
         print(f'\r  Frame not available (x{waited})', end='')
         cv2.waitKey(30)
-    print('\nSuccess! Camera stream is ready.')
+    print('\nSuccess!\nStarting streaming - press "q" to quit.')
 
-    # 2. Connect to ROV
-    master = create_connectionlink()
-    if not master:
-        sys.exit("Failed to establish MAVLink connection. Exiting.")
+    while True:
+        if video.frame_available():
+            frame = video.frame()
+            if frame is None:
+                continue  
 
-    # 3. Arm vehicle
-    if not arm_vehicle(master):
-        sys.exit("Vehicle refused to arm. Exiting.")
+            results = model(frame)
+            annotated_frame = results[0].plot()
 
-    print("Starting YOLO detection. Press 'q' to quit...")
-
-    try:
-        while True:
-            if video.frame_available():
-                frame = video.frame()
-
-                # Run YOLO inference; optionally set confidence (e.g., conf=0.3)
-                results = model(frame)
-                annotated_frame = results[0].plot()
-
-                # ------------------------------------------------------
-                # DETECTION LOGIC: Check if we see a 'bottle'
-                # ------------------------------------------------------
-                detected_bottle = False
-
-                # results[0].boxes has the bounding boxes
-                boxes = results[0].boxes
-
-                # Each box has .cls (class index), .conf (confidence), etc.
-                # results[0].names is a dict {class_index: class_name}
-                for box in boxes:
-                    class_id = int(box.cls[0])
-                    class_name = results[0].names[class_id]
-                    # If the model's class name is 'bottle'
-                    if class_name == "bottle":
-                        detected_bottle = True
-                        break  # We only need one bottle to move
-
-                # ------------------------------------------------------
-                # MOTOR CONTROL: Move only if a bottle is detected
-                # ------------------------------------------------------
-                if detected_bottle:
-                    print("Bottle detected! Moving forward...")
-                    control_motors(
-                        master,
-                        roll=1500,
-                        pitch=1600,   # slight forward
-                        throttle=1500,
-                        yaw=1500
-                    )
-                else:
-                    # No bottle => stay neutral
-                    control_motors(
-                        master,
-                        roll=1500,
-                        pitch=1500,
-                        throttle=1500,
-                        yaw=1500
-                    )
-
-                # Show the annotated frame
-                cv2.imshow('ROV Camera', annotated_frame)
-
-            # Check for quit key
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-
-            # Small delay so we don't max out CPU
-            time.sleep(0.01)
-
-    except KeyboardInterrupt:
-        print("KeyboardInterrupt received. Exiting...")
-
-    finally:
-        # Stop motors
-        control_motors(
-            master,
-            roll=1500,
-            pitch=1500,
-            throttle=1500,
-            yaw=1500
-        )
-        disarm_vehicle(master)
-        cv2.destroyAllWindows()
+            #Here we want the robot to be connstantly searching
 
 
-if __name__ == '__main__':
-    main()
+
+            # Debug: see if YOLO is detecting anything
+            boxes = results[0].boxes
+            detected_person = False
+            for box in boxes:
+                class_id = int(box.cls[0])
+                class_name = results[0].names[class_id]
+                print(f"Detected: {class_name}")
+                if class_name == "person":
+                    detected_person = True
+                    break
+
+            # Motor control
+            if detected_person:
+                print("Person detected! Moving forward...")
+                # Make sure to pass correct number of motor values:
+                control_motors(master, 1500, 1500, 1500, 1600, 1600, 1500)
+                
+                #here we need to add more logic to follow the objevt
+                #We will need to update our moving parameters above to follow the robot
+
+
+            else:
+                # No person => neutral
+                control_motors(master, 1500, 1500, 1500, 1500, 1500, 1500)
+
+            cv2.imshow('Fishy device', annotated_frame)
+
+        # Quit on 'q'
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            # Stop motors
+            control_motors(master, 1500, 1500, 1500, 1500, 1500, 1500)
+            disarm_vehicle(master)
+            break
+
+    cv2.destroyAllWindows()
+    print("Exiting program.")
