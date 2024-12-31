@@ -1,19 +1,3 @@
-
-#!/usr/bin/env python
-"""
-BlueRov video capture class
-"""
-
-import cv2
-import numpy as np
-import gi
-from ultralytics import YOLO
-import os 
-import sys
-
-
-
-
 gi.require_version('Gst', '1.0')
 from gi.repository import Gst
 
@@ -154,43 +138,4 @@ class Video():
         self._new_frame = self.gst_to_opencv(sample)
 
         return Gst.FlowReturn.OK
-
-
-if __name__ == '__main__':
-    sys.stdout = open (os.devnull,'w')
-    # Create the video object
-    # Add port= if is necessary to use a different one
-    model = YOLO('yolov8n.pt')
-    print("Created the model")
-
-    video = Video()
-    
-
-    print('Initialising stream...')
-    waited = 0
-    while not video.frame_available():
-        waited += 1
-        print('\r  Frame not available (x{})'.format(waited), end='')
-        cv2.waitKey(30)
-    print('\nSuccess!\nStarting streaming - press "q" to quit.')
-
-    while True:
-        # Wait for the next frame to become available
-        if video.frame_available():
-            # Only retrieve and display a frame if it's new
-            frame = video.frame()
-            results = model(frame)
-            annotated_frame = results[0].plot()
-            cv2.imshow('Fishy device', annotated_frame)
-
-
-
-
-
-
-        # Allow frame to display, and check if user wants to quit
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-    sys.stdout.close()
-    sys.stdout = sys.__stdout__
 
